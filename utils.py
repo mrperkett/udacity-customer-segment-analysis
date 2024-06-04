@@ -3,7 +3,20 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
+
 def parse_missing_or_unknown_str(missing_or_unknown_str):
+    """
+    Parse into a list the missing/unknown string from the "missing_or_unknown" column in
+    AZDIAS_Feature_Summary.csv.
+
+    Args:
+        missing_or_unknown_str: the string signifying which values are unknown or missing in
+                AZDIAS_Feature_Summary.csv.  Ex: "[-1,0]"
+    
+    Return:
+        converted_list: a list of all values that signifiy missing or unknown.  If possible,
+                the values will be converted to an int, but left as a string otherwise.
+    """
     # unique missing_or_unknown: ['[-1,0]' '[-1,0,9]' '[0]' '[-1]' '[]' '[-1,9]' '[-1,X]' '[XX]' '[-1,XX]']
     if not missing_or_unknown_str.startswith("["):
         raise ValueError(f"missing_or_unknown_str ({missing_or_unknown_str}) is expected to start with '['")
@@ -23,6 +36,13 @@ def parse_missing_or_unknown_str(missing_or_unknown_str):
 
 def build_column_to_missing_and_unkown_values(df_feature_summary):
     """
+    Build a dictionary mapping from column name to a list of values signifying missing/unknown.
+
+    Args:
+        df_feature_summary: pandas dataframe loaded from AZDIAS_Feature_Summary.csv.
+
+    Return:
+        column_to_missing_and_unkown_values
     """
     column_to_missing_and_unkown_values = dict()
     for _, row in df_feature_summary.iterrows():
@@ -38,6 +58,13 @@ def build_column_to_missing_and_unkown_values(df_feature_summary):
 
 def build_column_to_data_type(df_feature_summary):
     """
+    Build a dictionary mapping from column name to the column's data type.
+
+    Args:
+        df_feature_summary: pandas dataframe loaded from AZDIAS_Feature_Summary.csv.
+    
+    Return:
+        column_to_data_type
     """
     column_to_data_type = dict()
     for _, row in df_feature_summary.iterrows():
@@ -52,6 +79,13 @@ def build_column_to_data_type(df_feature_summary):
 
 def set_missing_and_unknown_to_nan(input_df, column_to_missing_and_unkown_values):
     """
+    Set all missing / unknown values to NaN
+
+    Args:
+        input_df: pandas dataframe loaded from Udacity_AZDIAS_Subset.csv
+    
+    Return:
+        df: pandas dataframe with NaN added in place of missing / unknown data signifiers
     """
     # Reference for why I'm using pd.NA below
     # https://pandas.pydata.org/docs/user_guide/missing_data.html
@@ -79,14 +113,20 @@ def set_missing_and_unknown_to_nan(input_df, column_to_missing_and_unkown_values
     #    - Ex values: 51, 24, 12, 43, 54, 22, 14, 13, 15, 33
     #    - Currently is dropped rather than going through feature engineering
     df["CAMEO_DEUG_2015"] = df["CAMEO_DEUG_2015"].astype("Int64")
-    #idx = ~df["CAMEO_DEUG_2015"].isna()
-    #df["CAMEO_DEUG_2015"] = df[idx]["CAMEO_DEUG_2015"].astype(int)
 
     return df
 
 
 def get_missing_value_counts(df):
     """
+    Build a dataframe that summarizes the number of NaNs in each column.
+
+    Args:
+        df: panda dataframe of the demographics data after NaNs have been
+            added to replace missing/unknown data
+
+    Return:
+        df_counts: pandas dataframe summarizing NaN count by column
     """
     df_counts = pd.DataFrame(df.columns, columns=["column"])
     df_counts["count_with_vals"] = len(df) - df.isna().sum(axis=0).values
@@ -99,6 +139,15 @@ def get_missing_value_counts(df):
 
 def get_nan_correlation_df(df):
     """
+    Generate a correlation matrix for the presence of NaNs in data dropping all columns that
+    have zero NaN.
+
+    Args:
+        df: panda dataframe of the demographics data after NaNs have been
+            added to replace missing/unknown data
+
+    Return:
+        df_nan_corr: pandas dataframe giving the correlation between NaN values for columns
     """
     df_counts = get_missing_value_counts(df)
     columns_with_zero_nan = df_counts[df_counts["count_with_nans"] == 0]["column"].values
@@ -112,17 +161,41 @@ def get_nan_correlation_df(df):
 
 def get_categorical_comparison_df(df1, df2, column_name, label1="keeping", label2="dropping"):
     """
+    Build a data frame that concatenate dataframes df1 and df2 and has two columns: column_name
+    (provided by user) and "category", which is given a value of label1 for df1 and label2 for df2.
+
+    Args:
+        df1: pandas dataframe - demographics data
+        df2: pandas dataframe - demographics data
+        column_name: 
+        label1: "category" for df1 points
+        label2: "category" for df2 points
+
+    Return:
+        df: concatenated pandas dataframes with two columns: column_name and "category"
     """
-    df_keeping_value_counts = pd.DataFrame(df1[column_name].value_counts(normalize=True, dropna=True)).reset_index()
-    df_keeping_value_counts["category"] = label1
-    df_dropping_value_counts = pd.DataFrame(df2[column_name].value_counts(normalize=True, dropna=True)).reset_index()
-    df_dropping_value_counts["category"] = label2
-    df = pd.concat([df_keeping_value_counts, df_dropping_value_counts]).reset_index(drop=True)
+    df1_counts = pd.DataFrame(df1[column_name].value_counts(normalize=True, dropna=True)).reset_index()
+    df1_counts["category"] = label1
+    df2_counts = pd.DataFrame(df2[column_name].value_counts(normalize=True, dropna=True)).reset_index()
+    df2_counts["category"] = label2
+    df = pd.concat([df1_counts, df2_counts]).reset_index(drop=True)
     return df
 
 
 def get_unique_values_df(df, column_to_data_type):
     """
+    Build dataframe that summarizes the data type (data_type), number of unique
+    values (num_unique_values), and provides a string list of the ten example 
+    unique values (ten_example_values) for each column in df.
+
+    Args:
+        df: pandas dataframe - demographics data
+        column_to_data_type: mapping dictionary from column name to data_type
+                Ex: key = "KBA13_ANZAHL_PKW", value = "numeric"
+
+    Return:
+        df_unique_values: pandas data frame with columns: "column", "data_type", 
+                "num_unique_values", "ten_example_values"
     """
     data = []
     for column in df.columns:
@@ -135,9 +208,18 @@ def get_unique_values_df(df, column_to_data_type):
     return df_unique_values
 
 
-
 def get_praegende_jugendjahre_features(value):
     """
+    Given a value for the "PRAEGENDE_JUGENDJAHRE" column, return two new categorical
+    values (avantgarde and decade).
+
+    Args:
+        value: Ex: 3
+
+    Return:
+        avantgarde: dominating movement of a person's youth (0 = avantgarde, 1 = mainstream)
+        decade: decade of person's youth (0 = 40s, 1 = 50s, .., 5 = 90s)
+            Ex: 0, 1
     """
     ### 1.18. PRAEGENDE_JUGENDJAHRE
     # Dominating movement of person's youth (avantgarde vs. mainstream; east vs. west)
@@ -182,6 +264,21 @@ def get_praegende_jugendjahre_features(value):
 
 def get_cameo_intl_2015_features(value):
     """
+    Given a value for the "CAMEO_INTL_2015" column, return two new categorical
+    values (wealth_category, life_stage_category).
+
+    Args:
+        value: Ex: 13
+
+    Return:
+        wealth_category: 
+            1 = wealthy, 2 = prosperous, 3 = comfortable, 4 = less affluent, 5 = poorer
+        life_stage_category:
+            1 = Pre-Family Couples & Singles
+            2 = Young Couples With Children
+            3 = Families With School Age Children
+            4 = Older Families &  Mature Couples
+            5 = Elders In Retirement
     """
     ### 4.3. CAMEO_INTL_2015
     # German CAMEO: Wealth / Life Stage Typology, mapped to international code
@@ -225,14 +322,20 @@ def get_cameo_intl_2015_features(value):
         raise ValueError(f"life stage category ({life_stage_category}) must be in the range [1, 5]")
     return wealth_category, life_stage_category
 
+
 def check_cleaned_df(df):
     """
     Check that the final cleaned df is fit for purpose
-    """
-    # - All numeric, interval, and ordinal type columns from the original dataset.
-    # - Binary categorical features (all numerically-encoded).
-    # - Engineered features from other multi-level categorical features and mixed features.
+        - All numeric, interval, and ordinal type columns from the original dataset.
+        - Binary categorical features (all numerically-encoded).
+        - Engineered features from other multi-level categorical features and mixed features.
 
+    Args:
+        df: pandas dataframe after all cleaning steps have been performed on demographics data
+    
+    Return:
+        True if all checks pass, throws an exception otherwise
+    """
     num_columns_in_original_dataset = 85
     column_dropped_to_num_replacements = {
             "TITEL_KZ" : 0, # not enough data
@@ -292,40 +395,23 @@ def check_cleaned_df(df):
     return True
 
 
-# def modify_categorical_columns(df):
-#     """
-#     """
-# #    df = df.copy()
-
-#     # drop column "CAMEO_DEU_2015"
-#     df = df.drop(columns=["CAMEO_DEU_2015"])
-
-#     # modify column "OST_WEST_KZ" to be numerical
-#     df["OST_WEST_KZ"] = df["OST_WEST_KZ"].apply(lambda val: 0 if val == "W" else 1)
-
-#     # carry out one hot encoding on columns
-#     columns_for_one_hot_encoding = [
-#             "GFK_URLAUBERTYP",
-#             'LP_FAMILIE_FEIN', 
-#             'LP_STATUS_FEIN', 
-#             'CAMEO_DEUG_2015', 
-#             'GEBAEUDETYP', 
-#             'CJT_GESAMTTYP', 
-#             'FINANZTYP', 
-#             'ZABEOTYP', 
-#             'LP_FAMILIE_GROB', 
-#             'LP_STATUS_GROB', 
-#             'SHOPPER_TYP', 
-#             'NATIONALITAET_KZ']
-#     df = pd.get_dummies(df, columns=columns_for_one_hot_encoding, dtype=int)
-
-#     return df
-
-
 def one_hot_encode_column(df_input, column, unique_vals):
     """
+    Perform one-hot encoding for categorical column "column" in dataframe "df_input" with unique
+    values for the column given by unique_vals.
+
     NOTE: if there is a NaN value in df[column], it will remain a NaN in df[new_column].  This is different
               behavior from pandas get_dummies, but is the desired behavior for this function
+
+    Args:
+        df_input: pandas dataframe - demographics data
+        column:
+        unique_vals: list of unique values in the column.
+
+    Return:
+        df: new dataframe with one-hot encoded columns added and original column dropped.  The new
+            columns are named "{column}_{unique_val}" and added in the order of unique values in
+            unique_vals
     """
     # verify that there are no non-NaN values in df_input aside from those in unique_vals
     unique_vals_set = set(unique_vals)
@@ -349,9 +435,15 @@ def one_hot_encode_column(df_input, column, unique_vals):
 
 def modify_categorical_columns(df):
     """
-    """
-#    df = df.copy()
+    Perform cleaning steps for all categorical columns of dataframe df.
 
+    Args:
+        df: input dataframe with demographics data
+
+    Return:
+        df: dataframe with all remaining categorical columns in a format suitable
+            for downstream analysis
+    """
     # drop column "CAMEO_DEU_2015"
     df = df.drop(columns=["CAMEO_DEU_2015"])
 
@@ -359,19 +451,6 @@ def modify_categorical_columns(df):
     df["OST_WEST_KZ"] = df["OST_WEST_KZ"].apply(lambda val: 0 if val == "W" else 1)
 
     # carry out one hot encoding on columns
-    # columns_for_one_hot_encoding = {
-    #         "GFK_URLAUBERTYP" : [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0],
-    #         'LP_FAMILIE_FEIN' : [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0],
-    #         'LP_STATUS_FEIN' : [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0],
-    #         'CAMEO_DEUG_2015' : [1, 2, 3, 4, 5, 6, 7, 8, 9],
-    #         'CJT_GESAMTTYP' : [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
-    #         'FINANZTYP' : [1, 2, 3, 4, 5, 6],
-    #         'ZABEOTYP' : [1, 2, 3, 4, 5, 6],
-    #         'LP_STATUS_GROB' : [1.0, 2.0, 3.0, 4.0, 5.0],
-    #         'LP_FAMILIE_GROB' : [1.0, 2.0, 3.0, 4.0, 5.0],
-    #         'GEBAEUDETYP' : [1.0, 3.0, 5.0, 8.0],
-    #         'SHOPPER_TYP' : [0, 1, 2, 3],
-    #         'NATIONALITAET_KZ' : [1, 2, 3]}
     columns_for_one_hot_encoding = {
             'CAMEO_DEUG_2015' : [1, 2, 3, 4, 5, 6, 7, 8, 9],
             'CJT_GESAMTTYP' : [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
@@ -393,9 +472,15 @@ def modify_categorical_columns(df):
 
 def modify_mixed_type_columns(df):
     """
-    """
-    # df = df.copy()
+    Perform cleaning steps for all mixed data type columns of dataframe df.
 
+    Args:
+        df: input dataframe with demographics data
+
+    Return:
+        df: dataframe with all remaining mixed type columns in a format suitable
+            for downstream analysis
+    """
     # Replace "PRAEGENDE_JUGENDJAHRE" with two new categorical columns: avantgarde and decade.  Drop the
     # original column.
 
@@ -420,7 +505,6 @@ def modify_mixed_type_columns(df):
     func = lambda val: get_cameo_intl_2015_features(val)[1]
     df["life_stage_category"] = df["CAMEO_INTL_2015"].apply(func)
 
-
     # drop original column
     df = df.drop(columns=["CAMEO_INTL_2015"])
 
@@ -441,6 +525,12 @@ def modify_mixed_type_columns(df):
 
 def clean_data(df_demographics, df_feature_summary, cutoff=0):
     """
+    Perform all steps required to clean the raw df_demographics dataframe.
+
+    Args:
+        df_demographics: pandas dataframe loaded from Udacity_AZDIAS_Subset.csv
+        df_feature_summary: pandas dataframe loaded from AZDIAS_Feature_Summary.csv
+        cutoff: keep rows that have <= cutoff NaNs
     """
     # build a helper dictionary that maps from column name to a list of values (of
     # the correct type) that are missing or unknown for that column
@@ -468,6 +558,18 @@ def clean_data(df_demographics, df_feature_summary, cutoff=0):
 
 def get_pca_components_df(pca, column_names):
     """
+    Build a dataframe that summarizes PCA eigenvectors in a dataframe with "column_name"
+    and "column_num" columns added.
+
+    Args:
+        pca: sklearn.decomposition.PCA object after it has been fit (and pca.explained_variance_ratio_
+             has been set)
+        column_names: list of all feature names with which to annotate pca eigenvectors in the
+                "column_name" column
+
+    Return:
+        df: pandas dataframe with columns "column_name", "column_num", 
+            "0", "1", .., "<num_pca_components>"
     """
     num_components, num_columns = pca.components_.shape
     num_components = len(pca.components_)
@@ -476,33 +578,30 @@ def get_pca_components_df(pca, column_names):
     df = pd.DataFrame(pca.components_.T, columns=[i for i in range(num_components)])
     df.insert(loc=0, column="column_name", value=column_names)
     df.insert(loc=1, column="column_num", value=[i for i in range(num_columns)])
-    #df = df.set_index(column_names)
 
     return df
 
 
-# def transform_features(df):
-#     """
-#     """
-#     # remove rows with one or more NaNs
-#     nan_count_by_row = df.isna().sum(axis=1).values
-#     df = df.iloc[nan_count_by_row==0]
-
-#     # drop the following columns, which all had the same value in the demographic dataset
-#     columns_to_drop = ['GEBAEUDETYP_2.0', 'GEBAEUDETYP_4.0', 'GEBAEUDETYP_6.0']
-#     df = df.drop(columns=columns_to_drop)
-
-#     # Apply feature scaling to the general population demographics data.
-#     scaler = StandardScaler()
-#     data_scaled = scaler.fit_transform(df)
-
-#     return df, data_scaled
-
-
 def get_cluster_counts_df(cluster_labels_arr, unique_cluster_ids_sorted):
     """
+    Build a dataframe summarizing cluster counts.
+
+    Args:
+        cluster_labels_arr: np.array output from kmeans.predict(data_pca)
+        unique_cluster_ids_sorted: sorted list of all unique cluster IDs.
+                NOTE: this is a parameter to ensure that when you apply this function on
+                non-general population data, which may have some clusters with a count of
+                zero, that these still appear in the final data frame with a count of zero
+
+    Return:
+        df: pandas dataframe summarizing count info for each cluster.
+            Columns:
+                cluster_id: cluster label from cluster_labels_arr
+                count: number in cluster
+                count_error: error in count (sqrt(count))
+                frac: proportion of total count in cluster (count_cluster / count_total)
+                frac_error: count_error / count_total
     """
-    # TODO: clean this up so that it's  easier to read
     counter = collections.Counter(cluster_labels_arr)
     total_count = len(cluster_labels_arr)
     cluster_ids = list(counter.keys())
@@ -512,6 +611,10 @@ def get_cluster_counts_df(cluster_labels_arr, unique_cluster_ids_sorted):
         count = counter[cluster_id]
         count_error = np.sqrt(count)
         frac = count / total_count
+        # TODO: this way of calculating frac_error is not quite right. I should use
+        #       full error propagation as done in normalize_cluster_comparison_df().  
+        #       However, since this will have a small impact on the final result, I 
+        #       will leave this for a future improvement.
         frac_error = count_error / total_count
         row = [cluster_id, count, count_error, frac, frac_error]
         data.append(row)
@@ -530,10 +633,18 @@ def get_cluster_counts_df(cluster_labels_arr, unique_cluster_ids_sorted):
 
 def normalize_cluster_comparison_df(df, normalization_basis_group):
     """
+    Add two in columns (normalized_frac, normalized_frac_error) to df (in place) 
+    normalizing cluster counts by df["group"] == normalization_basis_group.  This 
+    is used to normalize customer cluster fracs by general population cluster fracs.
+
+    Args:
+        df: concatenated dataframes generated using get_cluster_counts_df() and with
+            a new "group" column added
+        normalization_basis_group: group to use as the basis for normalization.
+
+    Return:
+        None
     """
-    # TODO: could make this function more abstract to broaden it's potential application, 
-    #       but I will hold off until it's needed in the future
-   
     # build helper dictionary
     cluster_id_to_frac_for_normalization = dict()
     cluster_id_to_frac_error_for_normalization = dict()
@@ -591,6 +702,37 @@ def normalize_cluster_comparison_df(df, normalization_basis_group):
 
 def get_cluster_counts_comparison_df(cluster_labels_1, cluster_labels_2, groups, normalization_basis_group):
     """
+    Generate two dataframes summarizing the counts, proportions, and relative proportions for
+    people in each cluster.  The two dataframes generated have identical data, but are provided
+    in a "wide" format (easier for reading through the data visually) and a "long" format (easier
+    for downstream data analysis and plotting).
+
+    Args:
+        cluster_labels_1: np.array output from kmeans.predict(data_pca) for group 1
+        cluster_labels_2: np.array output from kmeans.predict(data_pca) for group 2
+        groups: list of length two with string label cluster_labels_1 and cluster_labels_2 data
+        normalization_basis_group: group (must be in groups) to use as basis for normalization
+
+    Return:
+        df_wide:
+            Columns:
+                cluster_id
+                count
+                count_error
+                frac
+                frac_error
+                group
+                normalized_frac
+                normalized_frac_error
+        df_long:
+            Columns:
+                cluster_id
+                [count][cluster_labels_1/cluster_labels_2]
+                [count_error][cluster_labels_1/cluster_labels_2]
+                [frac][cluster_labels_1/cluster_labels_2]
+                [frac_error][cluster_labels_1/cluster_labels_2]
+                [normalized_frac][cluster_labels_1/cluster_labels_2]
+                [normalized_frac_error][cluster_labels_1/cluster_labels_2]
     """
     if len(groups) != 2:
         raise ValueError(f"groups must contain two group names, but it contains ({len(groups)})")
@@ -601,19 +743,15 @@ def get_cluster_counts_comparison_df(cluster_labels_1, cluster_labels_2, groups,
     unique_cluster_ids_sorted.sort()
 
     # load group 1
-    df_cluster_counts_demographics = get_cluster_counts_df(cluster_labels_1, unique_cluster_ids_sorted)
-    df_cluster_counts_demographics["group"] = groups[0]
-    print(len(df_cluster_counts_demographics))
-    #print(df_cluster_counts_demographics)
+    df_cluster_counts_1 = get_cluster_counts_df(cluster_labels_1, unique_cluster_ids_sorted)
+    df_cluster_counts_1["group"] = groups[0]
     
     # load group 2
-    df_cluster_counts_customers = get_cluster_counts_df(cluster_labels_2, unique_cluster_ids_sorted)
-    df_cluster_counts_customers["group"] = groups[1]
-    print(len(df_cluster_counts_customers))
-    
+    df_cluster_counts_2 = get_cluster_counts_df(cluster_labels_2, unique_cluster_ids_sorted)
+    df_cluster_counts_2["group"] = groups[1]
 
     # concat group 2 to group 1 to create the "long" dataframe (easier for data manipulation)
-    df_cluster_comparison_long = pd.concat([df_cluster_counts_demographics, df_cluster_counts_customers]).reset_index(drop=True)
+    df_cluster_comparison_long = pd.concat([df_cluster_counts_1, df_cluster_counts_2]).reset_index(drop=True)
 
     # normalize all frac data to normalize_group name
     normalize_cluster_comparison_df(df_cluster_comparison_long, normalization_basis_group)
@@ -624,42 +762,23 @@ def get_cluster_counts_comparison_df(cluster_labels_1, cluster_labels_2, groups,
             df_cluster_comparison_long.pivot(index=["cluster_id"], columns=["group"], values=values_list)
     df_cluster_comparison_wide["count"] = df_cluster_comparison_wide["count"].fillna(0).astype(int)
 
-    
-
-    # # load cluster counts dataframes
-    # df_cluster_counts_demographics = get_cluster_counts_df(cluster_labels_demographics)
-    # df_cluster_counts_customers = get_cluster_counts_df(cluster_labels_customers)
-
-    # # merge the cluster counts data frames into one
-    # df_cluster_comparison = df_cluster_counts_demographics.merge(df_cluster_counts_customers, how="left", on="cluster_id", suffixes=suffixes)
-    # df_cluster_comparison = df_cluster_comparison.fillna(0.0)
-
-    # # set dtype of count columns (back) to int
-    # if suffixes is None:
-    #     count_columns = ["count_x", "count_y"]
-    # else:
-    #     count_columns = [f"count{suffix}" for suffix in suffixes]
-    # for count_column in count_columns:
-    #     df_cluster_comparison[count_column] = df_cluster_comparison[count_column].astype(int)
-
-    # # create a tidy version of the dataframe where the columns are: "cluster_id", "count", "frac", "group"
-    # df_cluster_comparison.melt(id_vars="clustr_id", )
-
-    # # verify that on final dataframe
-    # if suffixes is None:
-    #     frac_columns = ["frac_x", "frac_y"]
-    # else:
-    #     frac_columns = [f"frac{suffix}" for suffix in suffixes]
-    # for frac_column in frac_columns:
-    #     frac_column_sum = df_cluster_comparison[frac_column].sum()
-    #     if frac_column_sum != 1.0:
-    #         raise AssertionError(f"sum of '{frac_column}' column is {frac_column_sum}, not 1.0")
-
     return df_cluster_comparison_wide, df_cluster_comparison_long
 
 
 def get_centroids(kmeans, pca, scaler):
     """
+    Return the centroids from kmeans clustering in all coordinate systems.
+
+    Args:
+        kmeans: sklearn.cluster.KMeans object that was used to cluster the data
+        pca: sklearn.decomposition.PCA object that was used to fit the data
+        scaler: sklearn.preprocessing.StandardScaler object that was used to scale
+                the cleaned data
+    
+    Return:
+        centroids_pca: centroids in PCA coordinates, np.array, shape = (num_clusters, num_pca)
+        centroids_scaled: centroids in scaled coordinates, np.array, shape = (num_clusters, num_features)
+        centroids_unscaled: centroids in unscaled coordinates, np.array, shape = (num_clusters, num_features)
     """
     centroids_pca = kmeans.cluster_centers_.copy()
     centroids_scaled = pca.inverse_transform(centroids_pca)
@@ -669,6 +788,18 @@ def get_centroids(kmeans, pca, scaler):
 
 def build_centroids_df(centroids, feature_names, df_cluster_comparison_long):
     """
+    Build a dataframe with several columns prepended to the centroid coordinates (cluster_id,
+    normalized_customer_frac, and demographics_frac).
+
+    Args:
+        centroids: centroid coordinates, np.array, shape = (num_clusters, num_features)
+        feature_names: list of feature names for each column of centroids
+        df_cluster_comparison_long: pandas dataframe with cluster comparison information generated
+                by get_cluster_counts_comparison_df()
+
+    Return:
+        df: pandas dataframe with the centroid coordinates and prepended columns: cluster_id,
+                normalized_customer_frac, and demographics_frac
     """
     columns = ["cluster_id", "normalized_customer_frac", "demographics_frac"] + feature_names
     num_centroids, num_features = centroids.shape
@@ -698,6 +829,17 @@ def build_centroids_df(centroids, feature_names, df_cluster_comparison_long):
 
 def get_centroids_df(kmeans, pca, scaler, df_cluster_comparison_long):
     """
+    Build a dataframe with several columns prepended to the centroid coordinates (cluster_id,
+    normalized_customer_frac, and demographics_frac) for each coordinate system (PCA, scaled,
+    and unscaled)
+
+    Args:
+
+    Return:
+        (format of dataframes is described in build_centroids_df())
+        df_centroids_pca: pandas dataframe for centroid PCA coordinates
+        df_centroids_scaled: pandas dataframe for centroid scaled coordinates
+        df_centroids_unscaled: pandas dataframe for centroid unscaled coordinates
     """
     centroids_pca, centroids_scaled, centroids_unscaled = get_centroids(kmeans, pca, scaler)
 
